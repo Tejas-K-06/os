@@ -1,22 +1,64 @@
-# Non-preemptive SJF template. Requires a burst estimate supplied by user/test.
+# Shortest Job First (estimated burst)
+# Apply after 612415074(1).diff_3 to a clean mit-pdos/xv6-public master checkout.
+# Each policy patch is an alternative: apply only one of 01..18.
+
 diff --git a/proc.h b/proc.h
 --- a/proc.h
 +++ b/proc.h
-@@
- struct proc {
-+  int expected_burst_ticks;
- };
+@@ -51,1 +51,2 @@ struct proc {
+   int priority;                // lets keep priority from 1 to 5
++  int expected_burst_ticks; /* user/test supplied burst estimate */
+
 diff --git a/proc.c b/proc.c
 --- a/proc.c
 +++ b/proc.c
-@@
--    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
--      if(p->state != RUNNABLE) continue;
-+    p = 0;
-+    for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
-+      if(q->state == RUNNABLE &&
-+         (p == 0 || q->expected_burst_ticks < p->expected_burst_ticks))
-+        p = q;
+@@ -91,1 +91,2 @@ found:
+   p->priority = 1; //lets just say the default priority is 1
++  p->expected_burst_ticks = 1;
+
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@ -320,33 +320,30 @@
+ 
+ void
+ scheduler(void)
+ {
+-  struct proc *p;
++  struct proc *p, *best;
+   struct cpu *c = mycpu();
+-
+   c->proc = 0;
+   for(;;){
+-    // Enable interrupts on this processor.
+     sti();
+-
+-    // Loop over process table looking for process to run.
+     acquire(&ptable.lock);
++    
++    best = 0;
+     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+       if(p->state != RUNNABLE)
+         continue;
+-
+-      // Switch to chosen process.  It is the process's job
+-      // to release ptable.lock and then reacquire it
+-      // before jumping back to us.
++      if(best == 0 || p->expected_burst_ticks < best->expected_burst_ticks || (p->expected_burst_ticks == best->expected_burst_ticks && p->pid < best->pid)) best = p;
 +    }
-+    if(p != 0){
++    if(best != 0){
++      p = best;
++      
        c->proc = p;
+       switchuvm(p);
+       p->state = RUNNING;
+       swtch(&(c->scheduler), p->context);
+       switchkvm();
+-
+-      // Process is done running for now.
+-      // It should have changed its p->state before coming back.
+       c->proc = 0;
++      
+     }
+     release(&ptable.lock);
+   }

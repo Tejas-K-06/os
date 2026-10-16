@@ -1,0 +1,18 @@
+# Stride scheduling selection template.
+# Use 64-bit pass/stride to reduce overflow risk. tickets must be positive.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint tickets;
++  uint stride;
++  uint64 pass_value;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    // Select first RUNNABLE process.
++    // Select RUNNABLE process with smallest pass_value.
++    // After dispatch: pass_value += stride, where stride = STRIDE_SCALE/tickets.

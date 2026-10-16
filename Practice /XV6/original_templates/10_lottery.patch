@@ -1,0 +1,17 @@
+# Lottery scheduling selection template.
+# Add tickets to struct proc and a kernel-safe PRNG. Do not use libc rand().
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint tickets;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    // Select first RUNNABLE process.
++    // total = sum(p->tickets) over RUNNABLE processes.
++    // winning = next_random() % total; scan runnable processes cumulatively
++    // and choose the one whose ticket interval contains winning.

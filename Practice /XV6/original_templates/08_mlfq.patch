@@ -1,0 +1,22 @@
+# MLFQ template: queue 0 highest priority; larger level = lower priority.
+# Requires demotion after each queue's quantum and periodic priority boost.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  int queue_level;       // 0..MLFQ_LEVELS-1
++  int ticks_in_level;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+   p->state = RUNNABLE;
++  p->queue_level = 0;
++  p->ticks_in_level = 0;
+@@
+-    // choose first RUNNABLE process
++    // Select RUNNABLE process with the smallest queue_level.
++    // On timer ticks, demote after quantum[queue_level] is consumed.
++    // Periodically set all non-UNUSED processes back to queue_level 0.

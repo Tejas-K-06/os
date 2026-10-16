@@ -1,0 +1,21 @@
+# Simplified CFS-like scheduler selection template.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint64 vruntime;
+ };
+diff --git a/trap.c b/trap.c
+--- a/trap.c
++++ b/trap.c
+@@
+       case T_IRQ0 + IRQ_TIMER:
++        if(myproc() && myproc()->state == RUNNING)
++          myproc()->vruntime += 1;  // optionally weight by process nice value
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    // Select first RUNNABLE process.
++    // Select RUNNABLE process with the smallest vruntime.

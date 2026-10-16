@@ -1,36 +1,30 @@
-# System-call plumbing template for set_priority(pid, value).
-# Follow the syscall-number conventions of your exact xv6 tree.
-diff --git a/syscall.h b/syscall.h
---- a/syscall.h
-+++ b/syscall.h
-@@
-+#define SYS_setpriority 22
-diff --git a/syscall.c b/syscall.c
---- a/syscall.c
-+++ b/syscall.c
-@@
-+extern int sys_setpriority(void);
-@@
-+[SYS_setpriority] sys_setpriority,
-diff --git a/sysproc.c b/sysproc.c
---- a/sysproc.c
-+++ b/sysproc.c
-@@
+# Complete and test existing scheduling-parameter syscalls
+# Apply after 612415074(1).diff_3 to a clean mit-pdos/xv6-public master checkout.
+# This patch preserves the existing setpriority(int)/getpriority(void) ABI.
+
+diff --git a/test_priority.c b/test_priority.c
+--- a/test_priority.c
++++ b/test_priority.c
+@@ -0,0 +1,22 @@
++#include "types.h"
++#include "stat.h"
++#include "user.h"
++
 +int
-+sys_setpriority(void)
++main(void)
 +{
-+  int pid, priority;
-+  if(argint(0, &pid) < 0 || argint(1, &priority) < 0)
-+    return -1;
-+  return setpriority(pid, priority);
++  int old, p;
++  old = getpriority();
++  printf(1, "initial priority=%d\n", old);
++  for(p = 1; p <= 5; p++){
++    if(setpriority(p) < 0){
++      printf(2, "setpriority(%d) failed\n", p);
++      exit();
++    }
++    printf(1, "set priority=%d, getpriority=%d\n", p, getpriority());
++  }
++  if(setpriority(0) != -1 || setpriority(6) != -1)
++    printf(2, "invalid priority validation failed\n");
++  setpriority(old);
++  exit();
 +}
-diff --git a/user.h b/user.h
---- a/user.h
-+++ b/user.h
-@@
-+int setpriority(int, int);
-diff --git a/usys.S b/usys.S
---- a/usys.S
-+++ b/usys.S
-@@
-+SYSCALL(setpriority)

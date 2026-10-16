@@ -1,0 +1,22 @@
+# Non-preemptive SJF template. Requires a burst estimate supplied by user/test.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  int expected_burst_ticks;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+-      if(p->state != RUNNABLE) continue;
++    p = 0;
++    for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
++      if(q->state == RUNNABLE &&
++         (p == 0 || q->expected_burst_ticks < p->expected_burst_ticks))
++        p = q;
++    }
++    if(p != 0){
+       c->proc = p;

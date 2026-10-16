@@ -1,0 +1,14 @@
+# Earliest Deadline First selection template.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint deadline_tick;  // absolute deadline in global ticks
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    // Select first RUNNABLE process.
++    // Select RUNNABLE process with the smallest absolute deadline_tick.

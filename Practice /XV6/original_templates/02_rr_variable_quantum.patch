@@ -1,0 +1,30 @@
+# Variable quantum Round Robin patch template
+# Add quantum and ticks_used fields; expose set_quantum(int) if requested.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  int quantum;       // configured time slice in ticks
++  int ticks_used;    // ticks consumed in current slice
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+   p->state = RUNNABLE;
++  p->quantum = 4;    // default quantum; initialize/reset for each process
++  p->ticks_used = 0;
+diff --git a/trap.c b/trap.c
+--- a/trap.c
++++ b/trap.c
+@@
+-      if(myproc() && myproc()->state == RUNNING)
+-        yield();
++      if(myproc() && myproc()->state == RUNNING){
++        myproc()->ticks_used++;
++        if(myproc()->ticks_used >= myproc()->quantum){
++          myproc()->ticks_used = 0;
++          yield();
++        }
++      }

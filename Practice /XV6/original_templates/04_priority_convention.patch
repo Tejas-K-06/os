@@ -1,0 +1,11 @@
+# Priority convention / tie-break patch template
+# This is a focused change: lower value = higher priority; equal values use
+# earlier PID as deterministic tie-break. Integrate into your scheduler loop.
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-      if(p->priority > best->priority)
++      if(p->priority < best->priority ||
++         (p->priority == best->priority && p->pid < best->pid))
+         best = p;

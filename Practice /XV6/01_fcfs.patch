@@ -1,38 +1,70 @@
-# FCFS scheduling patch template for xv6-public x86
-# Concept: add unsigned arrival_order to struct proc, set it at allocation,
-# then in scheduler() choose RUNNABLE process with smallest arrival_order.
-# This patch is intentionally a TEMPLATE: context/line numbers vary by xv6 fork.
+# FCFS scheduling
+# Apply after 612415074(1).diff_3 to a clean mit-pdos/xv6-public master checkout.
+# Each policy patch is an alternative: apply only one of 01..18.
+
 diff --git a/proc.h b/proc.h
 --- a/proc.h
 +++ b/proc.h
-@@
- struct proc {
-+  uint arrival_order;  // assigned monotonically when process is allocated
- };
+@@ -51,1 +51,2 @@ struct proc {
+   int priority;                // lets keep priority from 1 to 5
++  uint arrival_order; /* FIFO order assigned at allocation */
+
 diff --git a/proc.c b/proc.c
 --- a/proc.c
 +++ b/proc.c
-@@
- static struct proc *initproc;
-+static uint next_arrival_order;
-@@
-   p->pid = nextpid++;
-+  p->arrival_order = __sync_fetch_and_add(&next_arrival_order, 1);
-@@
--    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
--      if(p->state != RUNNABLE)
--        continue;
-+    // FCFS: find the RUNNABLE process with the smallest arrival_order.
-+    p = 0;
-+    for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
-+      if(q->state == RUNNABLE && (p == 0 || q->arrival_order < p->arrival_order))
-+        p = q;
+@@ -91,1 +91,2 @@ found:
+   p->priority = 1; //lets just say the default priority is 1
++  p->arrival_order = next_arrival_order++;
+
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@ -320,33 +320,30 @@
+ 
+ void
+ scheduler(void)
+ {
+-  struct proc *p;
++  struct proc *p, *best;
+   struct cpu *c = mycpu();
+-
+   c->proc = 0;
+   for(;;){
+-    // Enable interrupts on this processor.
+     sti();
+-
+-    // Loop over process table looking for process to run.
+     acquire(&ptable.lock);
++    
++    best = 0;
+     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+       if(p->state != RUNNABLE)
+         continue;
+-
+-      // Switch to chosen process.  It is the process's job
+-      // to release ptable.lock and then reacquire it
+-      // before jumping back to us.
++      if(best == 0 || p->arrival_order < best->arrival_order || (p->arrival_order == best->arrival_order && p->pid < best->pid)) best = p;
 +    }
-+    if(p != 0){
++    if(best != 0){
++      p = best;
++      
        c->proc = p;
        switchuvm(p);
        p->state = RUNNING;
        swtch(&(c->scheduler), p->context);
        switchkvm();
+-
+-      // Process is done running for now.
+-      // It should have changed its p->state before coming back.
        c->proc = 0;
++      
      }
+     release(&ptable.lock);
+   }
+
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@ -25,0 +26,1 @@ static struct proc *initproc;
++static uint next_arrival_order = 1;

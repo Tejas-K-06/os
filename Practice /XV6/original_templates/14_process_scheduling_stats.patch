@@ -1,0 +1,26 @@
+# Per-process scheduling statistics template.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint cpu_ticks;
++  uint dispatch_count;
++  uint ready_wait_ticks;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+       c->proc = p;
+       switchuvm(p);
+       p->state = RUNNING;
++      p->dispatch_count++;
+       swtch(&(c->scheduler), p->context);
+diff --git a/trap.c b/trap.c
+--- a/trap.c
++++ b/trap.c
+@@
+       case T_IRQ0 + IRQ_TIMER:
++        if(myproc() && myproc()->state == RUNNING)
++          myproc()->cpu_ticks++;

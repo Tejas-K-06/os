@@ -1,0 +1,21 @@
+# Instrumentation template for comparing scheduling algorithms.
+# This adds fields only; expose them via a print/stats syscall or test program.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint start_tick;
++  uint first_run_tick;
++  uint finish_tick;
++  uint cpu_ticks;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+   p->state = RUNNABLE;
++  p->start_tick = ticks;  // protect global ticks with tickslock in real implementation
+@@
+       p->state = RUNNING;
++      if(p->first_run_tick == 0) p->first_run_tick = ticks;

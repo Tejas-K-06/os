@@ -1,18 +1,68 @@
-# Stride scheduling selection template.
-# Use 64-bit pass/stride to reduce overflow risk. tickets must be positive.
+# Stride scheduling
+# Apply after 612415074(1).diff_3 to a clean mit-pdos/xv6-public master checkout.
+# Each policy patch is an alternative: apply only one of 01..18.
+
 diff --git a/proc.h b/proc.h
 --- a/proc.h
 +++ b/proc.h
-@@
- struct proc {
-+  uint tickets;
-+  uint stride;
-+  uint64 pass_value;
- };
+@@ -51,1 +51,4 @@ struct proc {
+   int priority;                // lets keep priority from 1 to 5
++  uint tickets; /* positive ticket weight */
++  uint stride; /* STRIDE_SCALE / tickets */
++  uint pass_value; /* virtual service received */
+
 diff --git a/proc.c b/proc.c
 --- a/proc.c
 +++ b/proc.c
-@@
--    // Select first RUNNABLE process.
-+    // Select RUNNABLE process with smallest pass_value.
-+    // After dispatch: pass_value += stride, where stride = STRIDE_SCALE/tickets.
+@@ -91,1 +91,4 @@ found:
+   p->priority = 1; //lets just say the default priority is 1
++  p->tickets = 1;
++  p->stride = 10000;
++  p->pass_value = 0;
+
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@ -320,33 +320,30 @@
+ 
+ void
+ scheduler(void)
+ {
+-  struct proc *p;
++  struct proc *p, *best;
+   struct cpu *c = mycpu();
+-
+   c->proc = 0;
+   for(;;){
+-    // Enable interrupts on this processor.
+     sti();
+-
+-    // Loop over process table looking for process to run.
+     acquire(&ptable.lock);
++    
++    best = 0;
+     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+       if(p->state != RUNNABLE)
+         continue;
+-
+-      // Switch to chosen process.  It is the process's job
+-      // to release ptable.lock and then reacquire it
+-      // before jumping back to us.
++      if(best == 0 || p->pass_value < best->pass_value || (p->pass_value == best->pass_value && p->pid < best->pid)) best = p;
++    }
++    if(best != 0){
++      p = best;
++      
+       c->proc = p;
+       switchuvm(p);
+       p->state = RUNNING;
+       swtch(&(c->scheduler), p->context);
+       switchkvm();
+-
+-      // Process is done running for now.
+-      // It should have changed its p->state before coming back.
+       c->proc = 0;
++      if(p->pass_value <= 0xFFFFFFFFU - p->stride) p->pass_value += p->stride; else p->pass_value = 0xFFFFFFFFU;
+     }
+     release(&ptable.lock);
+   }

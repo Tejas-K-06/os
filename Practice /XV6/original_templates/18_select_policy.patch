@@ -1,0 +1,17 @@
+# Scheduling policy switch template.
+# A global policy variable alone is not enough: each branch must implement a
+# complete selection rule and define how timer preemption works.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
++enum sched_policy { SCHED_RR=0, SCHED_FCFS=1, SCHED_PRIORITY=2 };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
++int current_sched_policy = SCHED_RR;
+@@
+-    // Select first RUNNABLE process.
++    // switch(current_sched_policy) { case SCHED_RR: ...;
++    // case SCHED_FCFS: ...; case SCHED_PRIORITY: ...; }

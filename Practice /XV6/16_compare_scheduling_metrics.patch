@@ -1,21 +1,37 @@
-# Instrumentation template for comparing scheduling algorithms.
-# This adds fields only; expose them via a print/stats syscall or test program.
+# Scheduling metrics instrumentation; apply after 612415074(1).diff_3.
+# Records process creation, first timer-observed run, finish, and CPU ticks.
 diff --git a/proc.h b/proc.h
 --- a/proc.h
 +++ b/proc.h
-@@
- struct proc {
+@@ -51,1 +51,5 @@ struct proc {
+   int priority;                // lets keep priority from 1 to 5
 +  uint start_tick;
 +  uint first_run_tick;
 +  uint finish_tick;
 +  uint cpu_ticks;
- };
+
 diff --git a/proc.c b/proc.c
 --- a/proc.c
 +++ b/proc.c
-@@
-   p->state = RUNNABLE;
-+  p->start_tick = ticks;  // protect global ticks with tickslock in real implementation
-@@
-       p->state = RUNNING;
-+      if(p->first_run_tick == 0) p->first_run_tick = ticks;
+@@ -91,1 +91,5 @@ found:
+   p->priority = 1; //lets just say the default priority is 1
++  p->start_tick = uptime();
++  p->first_run_tick = 0;
++  p->finish_tick = 0;
++  p->cpu_ticks = 0;
+@@ -246,3 +250,4 @@ exit(void)
+   curproc->cwd = 0;
++  curproc->finish_tick = uptime();
+ 
+   acquire(&ptable.lock);
+
+diff --git a/trap.c b/trap.c
+--- a/trap.c
++++ b/trap.c
+@@ -98,2 +98,6 @@
+   if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER)
++    myproc()->cpu_ticks++;
++  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER && myproc()->first_run_tick == 0)
++    myproc()->first_run_tick = uptime();
++  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER)
+     yield();

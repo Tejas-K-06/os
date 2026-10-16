@@ -1,0 +1,15 @@
+# MLQ template: fixed process class, no automatic movement between queues.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  int queue_class;   // 0 = interactive, 1 = batch
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    // Select first RUNNABLE process.
++    // First choose the highest-priority nonempty queue_class.
++    // Within class 0 use RR; within class 1 choose FCFS.

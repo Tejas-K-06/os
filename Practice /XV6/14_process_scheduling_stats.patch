@@ -1,26 +1,40 @@
-# Per-process scheduling statistics template.
+# Per-process scheduling statistics; apply after 612415074(1).diff_3.
+# Adds counters while preserving the stock round-robin scheduler.
 diff --git a/proc.h b/proc.h
 --- a/proc.h
 +++ b/proc.h
-@@
- struct proc {
+@@ -51,1 +51,4 @@ struct proc {
+   int priority;                // lets keep priority from 1 to 5
 +  uint cpu_ticks;
 +  uint dispatch_count;
 +  uint ready_wait_ticks;
- };
+
 diff --git a/proc.c b/proc.c
 --- a/proc.c
 +++ b/proc.c
-@@
-       c->proc = p;
+@@ -91,1 +91,4 @@ found:
+   p->priority = 1; //lets just say the default priority is 1
++  p->cpu_ticks = 0;
++  p->dispatch_count = 0;
++  p->ready_wait_ticks = 0;
+@@ -331,3 +334,5 @@ scheduler(void)
+     acquire(&ptable.lock);
+     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++      if(p->state == RUNNABLE)
++        p->ready_wait_ticks++;
+       if(p->state != RUNNABLE)
+@@ -339,3 +344,4 @@ scheduler(void)
        switchuvm(p);
        p->state = RUNNING;
 +      p->dispatch_count++;
        swtch(&(c->scheduler), p->context);
+
 diff --git a/trap.c b/trap.c
 --- a/trap.c
 +++ b/trap.c
-@@
-       case T_IRQ0 + IRQ_TIMER:
-+        if(myproc() && myproc()->state == RUNNING)
-+          myproc()->cpu_ticks++;
+@@ -98,2 +98,4 @@
+-  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER)
++  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER)
++    myproc()->cpu_ticks++;
++  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER)
+     yield();

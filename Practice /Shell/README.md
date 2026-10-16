@@ -1,16 +1,18 @@
-# OS Lab: 20 pipe()/system-call practice programs
+# Fixed Pipe and Redirection Programs
 
-These are independent Linux/POSIX C examples. They are practice variations, not predictions of the actual exam.
+This archive contains the 20 corrected C programs, keeping every original `.c` filename unchanged.
 
-## Compile
-For a file:
-```bash
-gcc -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=200809L 01_shell_multi_pipe.c -o program
+## Build
+Compile each program from this directory with a C compiler, for example:
+
+```sh
+gcc -std=c11 -Wall -Wextra -pedantic -o shell 01_shell_multi_pipe.c
 ```
-Some examples require command-line arguments; each source comment includes a usage example where relevant.
 
-## Important limitations
-- The mini-shell parsers split on whitespace; they do not implement shell quoting, escaping, variable expansion, or globbing.
-- Examples using `grep`, `cat`, `wc`, `head`, `sort`, or `ls` require those utilities to be installed and available on PATH.
-- The redirection examples are intentionally simple teaching examples.
-- Always check system-call return values in a production program; the exam may require more extensive error handling.
+Each file's opening comment includes its purpose and, where applicable, usage examples. Most programs are POSIX C programs intended for Linux/macOS.
+
+## Notes
+- Pipeline programs close unused pipe descriptors and check `pipe`, `fork`, `dup2`, `exec`, and `waitpid` failures where relevant.
+- Child processes use `_exit()` after failures following `fork()`.
+- Programs return meaningful nonzero statuses for errors and failed commands where practical.
+- The small interactive shells and command-string pipeline examples use a deliberately simple whitespace parser. They do not implement full shell quoting, variable expansion, globbing, or escaping.
