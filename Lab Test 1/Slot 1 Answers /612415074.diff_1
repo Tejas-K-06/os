@@ -1,0 +1,139 @@
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -171,2 +171,3 @@ UPROGS=\
+ 	_wc\
+ 	_zombie\
++	_ancestor\
+
+diff --git a/defs.h b/defs.h
+--- a/defs.h
++++ b/defs.h
+@@ -120,1 +120,2 @@
+ struct proc*    myproc(void);
++int             getppid(int);
+
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@ -300,2 +300,26 @@
+   return p;
+ }
++
++// Return the parent PID of the process whose PID is pid.
++// Return -1 if the process does not exist or has no parent.
++int
++getppid(int pid)
++{
++  struct proc *p;
++  int parent_pid;
++
++  acquire(&ptable.lock);
++  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++    if(p->pid == pid && p->state != UNUSED){
++      if(p->parent == 0){
++        release(&ptable.lock);
++        return -1;
++      }
++      parent_pid = p->parent->pid;
++      release(&ptable.lock);
++      return parent_pid;
++    }
++  }
++  release(&ptable.lock);
++  return -1;
++}
+
+diff --git a/syscall.h b/syscall.h
+--- a/syscall.h
++++ b/syscall.h
+@@ -20,3 +20,4 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++#define SYS_getppid 22
+
+diff --git a/syscall.c b/syscall.c
+--- a/syscall.c
++++ b/syscall.c
+@@ -105,4 +105,5 @@
+ extern int sys_unlink(void);
+ extern int sys_wait(void);
+ extern int sys_write(void);
+ extern int sys_uptime(void);
++extern int sys_getppid(void);
+@@ -128,3 +129,4 @@
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_getppid] sys_getppid,
+ };
+
+diff --git a/sysproc.c b/sysproc.c
+--- a/sysproc.c
++++ b/sysproc.c
+@@ -89,2 +89,12 @@
+   return myproc()->pid;
+ }
++
++int
++sys_getppid(void)
++{
++  int pid;
++
++  if(argint(0, &pid) < 0)
++    return -1;
++  return getppid(pid);
++}
+
+diff --git a/user.h b/user.h
+--- a/user.h
++++ b/user.h
+@@ -25,4 +25,5 @@
+ int getpid(void);
+ int sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int getppid(int);
+
+diff --git a/usys.S b/usys.S
+--- a/usys.S
++++ b/usys.S
+@@ -29,3 +29,4 @@
+ SYSCALL(sbrk)
+ SYSCALL(sleep)
+ SYSCALL(uptime)
++SYSCALL(getppid)
+
+diff --git a/ancestor.c b/ancestor.c
+new file mode 100644
+--- /dev/null
++++ b/ancestor.c
+@@ -0,0 +1,28 @@
++#include "types.h"
++#include "stat.h"
++#include "user.h"
++
++int
++main(void)
++{
++  int pid;
++  int parent_pid;
++
++  pid = getpid();
++  printf(1, "Current PID: %d\n", pid);
++
++  while(pid != 1){
++    parent_pid = getppid(pid);
++    if(parent_pid < 0){
++      printf(1, "Could not find parent of PID %d\n", pid);
++      break;
++    }
++
++    printf(1, "Parent PID: %d\n", parent_pid);
++    if(parent_pid == pid)
++      break;
++    pid = parent_pid;
++  }
++
++  exit();
++}

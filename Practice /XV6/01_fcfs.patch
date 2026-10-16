@@ -1,0 +1,38 @@
+# FCFS scheduling patch template for xv6-public x86
+# Concept: add unsigned arrival_order to struct proc, set it at allocation,
+# then in scheduler() choose RUNNABLE process with smallest arrival_order.
+# This patch is intentionally a TEMPLATE: context/line numbers vary by xv6 fork.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint arrival_order;  // assigned monotonically when process is allocated
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+ static struct proc *initproc;
++static uint next_arrival_order;
+@@
+   p->pid = nextpid++;
++  p->arrival_order = __sync_fetch_and_add(&next_arrival_order, 1);
+@@
+-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+-      if(p->state != RUNNABLE)
+-        continue;
++    // FCFS: find the RUNNABLE process with the smallest arrival_order.
++    p = 0;
++    for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
++      if(q->state == RUNNABLE && (p == 0 || q->arrival_order < p->arrival_order))
++        p = q;
++    }
++    if(p != 0){
+       c->proc = p;
+       switchuvm(p);
+       p->state = RUNNING;
+       swtch(&(c->scheduler), p->context);
+       switchkvm();
+       c->proc = 0;
+     }

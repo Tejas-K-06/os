@@ -1,0 +1,16 @@
+# Preemptive priority template. xv6 timer preemption already yields each tick;
+# scheduler selection must always choose the best RUNNABLE priority.
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+-      if(p->state != RUNNABLE) continue;
++    p = 0;
++    for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
++      if(q->state == RUNNABLE &&
++         (p == 0 || q->priority > p->priority))  // larger = higher priority
++        p = q;
++    }
++    if(p != 0){
+       c->proc = p;

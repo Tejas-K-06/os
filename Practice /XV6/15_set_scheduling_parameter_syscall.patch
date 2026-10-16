@@ -1,0 +1,36 @@
+# System-call plumbing template for set_priority(pid, value).
+# Follow the syscall-number conventions of your exact xv6 tree.
+diff --git a/syscall.h b/syscall.h
+--- a/syscall.h
++++ b/syscall.h
+@@
++#define SYS_setpriority 22
+diff --git a/syscall.c b/syscall.c
+--- a/syscall.c
++++ b/syscall.c
+@@
++extern int sys_setpriority(void);
+@@
++[SYS_setpriority] sys_setpriority,
+diff --git a/sysproc.c b/sysproc.c
+--- a/sysproc.c
++++ b/sysproc.c
+@@
++int
++sys_setpriority(void)
++{
++  int pid, priority;
++  if(argint(0, &pid) < 0 || argint(1, &priority) < 0)
++    return -1;
++  return setpriority(pid, priority);
++}
+diff --git a/user.h b/user.h
+--- a/user.h
++++ b/user.h
+@@
++int setpriority(int, int);
+diff --git a/usys.S b/usys.S
+--- a/usys.S
++++ b/usys.S
+@@
++SYSCALL(setpriority)

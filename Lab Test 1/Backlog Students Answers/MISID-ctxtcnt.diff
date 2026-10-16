@@ -1,0 +1,167 @@
+diff --git a/defs.h b/defs.h
+--- a/defs.h
++++ b/defs.h
+@@ -1,0 +1,1 @@
+ void            cprintf(char*, ...);
++void            print_ctxtcnt(void);
+
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@ -1,0 +1,1 @@
+ struct {
+   struct spinlock lock;
+   struct proc proc[NPROC];
+ } ptable;
++
++// Counters requested by the OS lab assignment.
++static struct spinlock ctxtcnt_lock;
++static uint timer_interrupt_count;
++static uint context_switch_count;
+@@ -1,0 +1,1 @@
+ void
+ pinit(void)
+ {
+   initlock(&ptable.lock, "ptable");
++  initlock(&ctxtcnt_lock, "ctxtcnt");
++  timer_interrupt_count = 0;
++  context_switch_count = 0;
+ }
+@@ -1,0 +1,1 @@
+ void
+ scheduler(void)
+ {
+@@ -1,0 +1,1 @@
+       if(p->state == RUNNABLE) {
+         // Switch to chosen process.  It is the process's job
+         // to release ptable.lock and then reacquire it
+         // before jumping back to us.
+         c->proc = p;
+         switchuvm(p);
+         p->state = RUNNING;
++        acquire(&ctxtcnt_lock);
++        context_switch_count++;
++        release(&ctxtcnt_lock);
+         swtch(&(c->scheduler), p->context);
+         switchkvm();
+@@ -1,0 +1,1 @@
+ }
++
++// Called once for every timer interrupt handled by trap().
++void
++count_timer_interrupt(void)
++{
++  acquire(&ctxtcnt_lock);
++  timer_interrupt_count++;
++  release(&ctxtcnt_lock);
++}
++
++// Print a consistent snapshot of both counters.
++void
++print_ctxtcnt(void)
++{
++  uint timer_count, switch_count;
++
++  acquire(&ctxtcnt_lock);
++  timer_count = timer_interrupt_count;
++  switch_count = context_switch_count;
++  release(&ctxtcnt_lock);
++
++  cprintf("Timer interrupts: %d\n", timer_count);
++  cprintf("Context switches: %d\n", switch_count);
++}
+
+diff --git a/trap.c b/trap.c
+--- a/trap.c
++++ b/trap.c
+@@ -1,0 +1,1 @@
+       case T_IRQ0 + IRQ_TIMER:
++        count_timer_interrupt();
+         if(cpuid() == 0){
+           acquire(&tickslock);
+           ticks++;
+@@ -1,0 +1,1 @@
+       lapiceoi();
+       break;
+
+diff --git a/defs.h b/defs.h
+--- a/defs.h
++++ b/defs.h
+@@ -1,0 +1,1 @@
+ void            cprintf(char*, ...);
++void            count_timer_interrupt(void);
+
+diff --git a/syscall.h b/syscall.h
+--- a/syscall.h
++++ b/syscall.h
+@@ -1,0 +1,1 @@
+ #define SYS_close  21
++#define SYS_ctxtcnt 22
+
+diff --git a/syscall.c b/syscall.c
+--- a/syscall.c
++++ b/syscall.c
+@@ -1,0 +1,1 @@
+ extern int sys_close(void);
++extern int sys_ctxtcnt(void);
+@@ -1,0 +1,1 @@
+ [SYS_close]   sys_close,
++[SYS_ctxtcnt] sys_ctxtcnt,
+
+diff --git a/sysproc.c b/sysproc.c
+--- a/sysproc.c
++++ b/sysproc.c
+@@ -1,0 +1,1 @@
+ int
+ sys_getpid(void)
+ {
+   return myproc()->pid;
+ }
++
++int
++sys_ctxtcnt(void)
++{
++  print_ctxtcnt();
++  return 0;
++}
+
+diff --git a/user.h b/user.h
+--- a/user.h
++++ b/user.h
+@@ -1,0 +1,1 @@
+ int getpid(void);
++int ctxtcnt(void);
+
+diff --git a/usys.S b/usys.S
+--- a/usys.S
++++ b/usys.S
+@@ -1,0 +1,1 @@
+ SYSCALL(getpid)
++SYSCALL(ctxtcnt)
+
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -1,0 +1,1 @@
+ 	_cat\
++	_ctxtcnt_test\
+
+diff --git a/ctxtcnt_test.c b/ctxtcnt_test.c
+new file mode 100644
+--- /dev/null
++++ b/ctxtcnt_test.c
+@@ -1,0 +1,1 @@
++#include "types.h"
++#include "stat.h"
++#include "user.h"
++
++int
++main(void)
++{
++  printf(1, "Checking timer interrupt and context-switch counters:\n");
++  ctxtcnt();
++  sleep(20);
++  printf(1, "After sleep:\n");
++  ctxtcnt();
++  exit();
++}

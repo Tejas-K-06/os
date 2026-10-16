@@ -1,0 +1,33 @@
+# Priority scheduling with aging patch template
+# Assumes lower numeric priority means higher priority; adjust to your convention.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  int priority;
++  uint runnable_wait_ticks;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+   p->priority = DEFAULT_PRIORITY;
++  p->runnable_wait_ticks = 0;
+@@
+-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+-      if(p->state != RUNNABLE) continue;
++    p = 0;
++    for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
++      if(q->state == RUNNABLE){
++        q->runnable_wait_ticks++;
++        if(q->runnable_wait_ticks >= AGING_TICKS && q->priority > MIN_PRIORITY){
++          q->priority--;
++          q->runnable_wait_ticks = 0;
++        }
++        if(p == 0 || q->priority < p->priority) p = q;
++      }
++    }
++    if(p != 0){
++      p->runnable_wait_ticks = 0;
+       c->proc = p;

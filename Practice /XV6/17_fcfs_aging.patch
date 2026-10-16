@@ -1,0 +1,18 @@
+# FCFS plus aging is not a standard canonical policy; this template shows
+# arrival ordering plus an effective priority boost after long runnable waits.
+diff --git a/proc.h b/proc.h
+--- a/proc.h
++++ b/proc.h
+@@
+ struct proc {
++  uint arrival_order;
++  uint runnable_wait_ticks;
++  int effective_priority;
+ };
+diff --git a/proc.c b/proc.c
+--- a/proc.c
++++ b/proc.c
+@@
+-    // Select first RUNNABLE process.
++    // Update effective_priority based on runnable_wait_ticks.
++    // Select by policy: effective priority first, arrival_order as tie-break.
