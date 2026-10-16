@@ -1,0 +1,120 @@
+diff --git a/.gitignore b/.gitignore
+index 3e2c9de..5cd2366 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -14,3 +14,5 @@ kernel
+ kernelmemfs
+ mkfs
+ .gdbinit
++*.out
++tags
+diff --git a/Makefile b/Makefile
+index 09d790c..087956d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -76,7 +76,7 @@ AS = $(TOOLPREFIX)gas
+ LD = $(TOOLPREFIX)ld
+ OBJCOPY = $(TOOLPREFIX)objcopy
+ OBJDUMP = $(TOOLPREFIX)objdump
+-CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -O2 -Wall -MD -ggdb -m32 -Werror -fno-omit-frame-pointer
++CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -O2 -Wall -MD -ggdb -m32 -fno-omit-frame-pointer
+ CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+ ASFLAGS = -m32 -gdwarf-2 -Wa,-divide
+ # FreeBSD ld wants ``elf_i386_fbsd''
+diff --git a/file.c b/file.c
+index 24b32c2..2cc01f5 100644
+--- a/file.c
++++ b/file.c
+@@ -9,35 +9,84 @@
+ #include "spinlock.h"
+ #include "sleeplock.h"
+ #include "file.h"
++#include "mmu.h"
++
++typedef struct file_cache{
++  struct file_cache *next;
++  struct file_cache *prev;
++  int num_free_file;
++}file_cache;
+ 
+ struct devsw devsw[NDEV];
++
+ struct {
+   struct spinlock lock;
+-  struct file file[NFILE];
++  file_cache *cache;
+ } ftable;
+ 
+ void
+ fileinit(void)
+ {
+   initlock(&ftable.lock, "ftable");
++  ftable.cache = 0;
+ }
+ 
++
++file_cache *create_file_cache()
++{
++  file_cache *cache_ptr = (file_cache*)kalloc();
++  if(cache_ptr == 0){
++    panic("Out of free pages");
++  }
++  memset(cache_ptr,0,PGSIZE);
++  cache_ptr->next = 0;
++  cache_ptr->prev = 0;
++  cache_ptr->num_free_file = (PGSIZE - sizeof(file_cache))/sizeof(struct file);
++  return cache_ptr;
++}
++
++
+ // Allocate a file structure.
+ struct file*
+ filealloc(void)
+ {
+   struct file *f;
+-
+   acquire(&ftable.lock);
+-  for(f = ftable.file; f < ftable.file + NFILE; f++){
+-    if(f->ref == 0){
+-      f->ref = 1;
+-      release(&ftable.lock);
+-      return f;
++  file_cache *fcache_curr = ftable.cache;
++  file_cache *fcache_prev = 0;
++  while(fcache_curr != 0)
++  {
++    if(ftable.cache->num_free_file == 0){
++      fcache_prev = fcache_curr;
++      fcache_curr = fcache_curr->next;
++      continue;
+     }
++    void *start, *end;
++    start = (void*)fcache_curr + sizeof(file_cache);
++    end = start + ((PGSIZE - sizeof(file_cache))/sizeof(struct file)) * sizeof(struct file);
++    struct file *temp;
++
++    for(temp=(struct file*)start; (void*)temp < end; temp++)
++    {
++      if(temp->ref == 0){
++        temp->ref = 1;
++        fcache_curr->num_free_file--;
++        release(&ftable.lock);
++        return temp;
++      }
++    }
++  }
++  fcache_curr = create_file_cache();
++  if(ftable.cache == 0){
++    ftable.cache = fcache_curr;
+   }
++  fcache_prev->next = fcache_curr;
++  fcache_curr->prev = fcache_prev;
++  struct file *fptr = (struct file*)((void*)fcache_curr + sizeof(file_cache));
++  fptr->ref = 1;
++  fcache_curr->num_free_file--;
+   release(&ftable.lock);
+-  return 0;
++  return fptr;
+ }
+ 
+ // Increment ref count for file f.
